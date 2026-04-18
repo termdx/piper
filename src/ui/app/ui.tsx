@@ -15,6 +15,7 @@ import { ResponsePanel } from './components/responsepanel';
 import { ExportDialog } from './components/exportdialog';
 import { themeManager } from '../../utils/themeManager';
 import { MetricsPanel } from './components/metricspanel';
+import { BugsPanel } from './components/bugspanel';
 
 interface Request { method: "GET" | "POST" | "PUT" | "DELETE"; url: string; headers: string; body: string; }
 
@@ -198,7 +199,7 @@ const UI = () => {
 		setActiveTab('request');
 	}, []);
 
-	const tabs = [{ name: 'request', label: 'Request' }, { name: 'response', label: 'Response' }]
+	const tabs = [{ name: 'request', label: 'Request' }, { name: 'response', label: 'Response' }, { name: 'bugs', label: 'Bugs' }]
 
 
 	const activeIndex = tabs.findIndex(t => t.name === activeTab);
@@ -302,6 +303,9 @@ const UI = () => {
 						</Box>
 						<Box display={activeTab === 'response' ? 'flex' : 'none'} flexGrow={1}>
 							<ResponsePanel response={response} theme={theme} />
+						</Box>
+						<Box display={activeTab === 'bugs' ? 'flex' : 'none'} flexGrow={1}>
+							<BugsPanel theme={theme} />
 						</Box>
 					</Box>
 					<Box alignSelf="center" marginBottom={1}>
