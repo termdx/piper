@@ -15,7 +15,7 @@ import { ResponsePanel } from './components/responsepanel';
 import { ExportDialog } from './components/exportdialog';
 import { themeManager } from '../../utils/themeManager';
 import { MetricsPanel } from './components/metricspanel';
-import { BugsPanel } from './components/bugspanel';
+import { BugPanel } from './components/bugspanel';
 
 interface Request { method: "GET" | "POST" | "PUT" | "DELETE"; url: string; headers: string; body: string; }
 
@@ -305,7 +305,7 @@ const UI = () => {
 							<ResponsePanel response={response} theme={theme} />
 						</Box>
 						<Box display={activeTab === 'bugs' ? 'flex' : 'none'} flexGrow={1}>
-							<BugsPanel theme={theme} />
+							<BugPanel theme={theme} />
 						</Box>
 					</Box>
 					<Box alignSelf="center" marginBottom={1}>

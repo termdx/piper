@@ -106,7 +106,7 @@ const BUGS: BugItem[] = [
 	}
 ];
 
-export const BugsPanel = React.memo<{ theme: Theme }>(({ theme }) => {
+export const BugPanel = React.memo<{ theme: Theme }>(({ theme }) => {
 	return (
 		<ScrollableBox isActive>
 			<Box flexDirection="column">
