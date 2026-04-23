@@ -1,18 +1,25 @@
 {
-  "name": "postboy-v2",
-  "module": "src/index.tsx",
+  "name": "piper",
+  "version": "0.0.1",
+  "module": "src/index.ts",
+  "main": "dist/cli.js",
+  "bin": {
+    "piper": "dist/cli.js"
+  },
   "type": "module",
   "private": true,
   "scripts": {
-    "dev": "bun run --watch src/index.ts"
+    "start": "bun run src/index.ts",
+    "dev": "bun run --watch src/index.ts",
+    "build": "bun build src/index.ts --outfile=dist/cli.js --target node"
   },
   "devDependencies": {
-    "@types/bun": "latest"
-  },
-  "peerDependencies": {
+    "@types/bun": "latest",
+    "@types/node": "^25.6.0",
     "typescript": "^5"
   },
   "dependencies": {
-    "@opentui/core": "^0.1.101"
+    "@opentui/core": "^0.1.101",
+    "commander": "^14.0.3"
   }
 }
