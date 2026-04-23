@@ -1,17 +1,16 @@
 {
   "name": "@termdx/piper",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "module": "src/index.ts",
   "main": "dist/index.js",
   "bin": {
     "piper": "dist/index.js"
   },
   "type": "module",
-  "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outdir=dist --target node"
+    "build": "bun build src/index.ts --outdir=dist --target bun && sed -i '1s|#!/usr/bin/env node|#!/usr/bin/env bun|' dist/index.js"
   },
   "devDependencies": {
     "@types/bun": "latest",

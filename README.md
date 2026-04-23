@@ -20,8 +20,10 @@ Piper is protocol-agnostic by design — start with HTTP, then chain requests, s
 
 ## Install
 
+Piper requires [Bun](https://bun.sh) to run.
+
 ```bash
-npm install -g @termdx/piper
+bun install -g @termdx/piper
 ```
 
 ## Usage
