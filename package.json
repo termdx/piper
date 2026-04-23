@@ -1,17 +1,17 @@
 {
-  "name": "piper",
-  "version": "0.0.1",
+  "name": "@termdx/piper",
+  "version": "0.1.0",
   "module": "src/index.ts",
-  "main": "dist/cli.js",
+  "main": "dist/index.js",
   "bin": {
-    "piper": "dist/cli.js"
+    "piper": "dist/index.js"
   },
   "type": "module",
   "private": true,
   "scripts": {
     "start": "bun run src/index.ts",
     "dev": "bun run --watch src/index.ts",
-    "build": "bun build src/index.ts --outfile=dist/cli.js --target node"
+    "build": "bun build src/index.ts --outdir=dist --target node"
   },
   "devDependencies": {
     "@types/bun": "latest",
