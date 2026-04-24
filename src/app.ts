@@ -408,19 +408,22 @@ export class PiperApp {
     if (!url) return;
 
     this.loading = true;
+    this.responsePanel.setLoading(true);
+    this.requestPanel.setSending(true);
     try {
-      let headers: Record<string, string> = {};
-      let body: string | undefined;
-      try {
-        if (headersStr) headers = JSON.parse(headersStr) as Record<string, string>;
-        if (bodyStr) body = JSON.stringify(JSON.parse(bodyStr));
-      } catch (err: any) {
-        this.responsePanel.setError(`Invalid JSON: ${err.message ?? String(err)}`);
-        this.loading = false;
-        return;
-      }
+      // Validate JSON but pass raw strings for env interpolation
+      if (headersStr) JSON.parse(headersStr);
+      if (bodyStr) JSON.parse(bodyStr);
+    } catch (err: any) {
+      this.responsePanel.setError(`Invalid JSON: ${err.message ?? String(err)}`);
+      this.loading = false;
+      this.responsePanel.setLoading(false);
+      this.requestPanel.setSending(false);
+      return;
+    }
 
-      const res = await sendRequest({ method, url, headers, body });
+    try {
+      const res = await sendRequest({ method, url, headers: headersStr, body: bodyStr });
       this.responsePanel.setResponse(res);
       this.metricsPanel.setMetrics(res.metrics);
       await this.historyPanel.addEntry({
@@ -436,6 +439,8 @@ export class PiperApp {
       this.responsePanel.setError(err.message ?? String(err));
     } finally {
       this.loading = false;
+      this.responsePanel.setLoading(false);
+      this.requestPanel.setSending(false);
     }
   }
 
