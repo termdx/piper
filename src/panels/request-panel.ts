@@ -10,6 +10,7 @@ import {
 import type { Theme, HistoryEntry } from "../types";
 import { highlightJson } from "../utils/json-highlight";
 import { historyStore } from "../utils/history";
+import { findEnvVars, getEnvVar } from "../utils/env";
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"];
 
@@ -58,8 +59,11 @@ export class RequestPanel {
   bodyPreview: CodeRenderable;
   headersPreview: CodeRenderable;
   sendButton: BoxRenderable;
+  sendButtonText: TextRenderable;
 
   private urlBarBox: BoxRenderable;
+  private spinnerInterval?: Timer;
+  private spinnerFrame = 0;
   private bodyContent = "";
   private headersContent = "";
   private selectedMethod = "GET";
@@ -67,7 +71,9 @@ export class RequestPanel {
   private historyEntries: HistoryEntry[] = [];
   private historyLoaded = false;
   private currentSuggestion?: HistoryEntry;
+  private currentEnvVar?: string;
   private ghostText = "";
+  private lastGhostQuery = "";
 
   onSend?: () => void;
   onMethodClick?: () => void;
@@ -144,6 +150,7 @@ export class RequestPanel {
       content: "",
       fg: theme.colors.muted,
       attributes: TextAttributes.DIM,
+      zIndex: 1,
     });
     (this.urlGhost as any).position = "absolute";
     this.urlBarBox.add(this.urlGhost);
@@ -202,12 +209,12 @@ export class RequestPanel {
       alignSelf: "center",
       onMouseDown: () => this.onSend?.(),
     });
-    const sendText = new TextRenderable(renderer, {
+    this.sendButtonText = new TextRenderable(renderer, {
       content: " send (ctrl+↵) ",
       fg: theme.colors.white,
       attributes: TextAttributes.BOLD,
     });
-    this.sendButton.add(sendText);
+    this.sendButton.add(this.sendButtonText);
     this.panel.add(this.sendButton);
   }
 
@@ -218,17 +225,62 @@ export class RequestPanel {
   }
 
   private updateGhost(query: string) {
+    this.lastGhostQuery = query;
+
+    // Check if we're inside an env var reference ${...}
+    const envMatch = this.matchEnvVar(query);
+    if (envMatch) {
+      const matches = findEnvVars(envMatch.partial);
+      if (matches.length > 0) {
+        const best = matches[0]!;
+        this.currentEnvVar = best;
+        this.currentSuggestion = undefined;
+        this.ghostText = best.slice(envMatch.partial.length) + "}";
+        this.urlGhost.content = this.ghostText;
+        this.urlGhost.fg = this.theme.colors.cool;
+        this.urlGhost.attributes = 0; // no dim
+        this.repositionGhost(envMatch.cursorPos);
+        return;
+      }
+    }
+
+    // Fall back to history URL suggestions
     void this.ensureHistoryLoaded().then(() => {
+      // Guard against stale async callbacks overwriting newer ghosts
+      if (this.lastGhostQuery !== query) return;
       const best = this.findBestMatch(query);
       if (best) {
         this.currentSuggestion = best;
+        this.currentEnvVar = undefined;
         this.ghostText = best.url.slice(query.length);
         this.urlGhost.content = this.ghostText;
+        this.urlGhost.fg = this.theme.colors.muted;
+        this.urlGhost.attributes = TextAttributes.DIM;
         this.repositionGhost(query.length);
       } else {
         this.clearGhost();
       }
     });
+  }
+
+  private matchEnvVar(query: string): { partial: string; cursorPos: number } | undefined {
+    // Find the last unclosed ${
+    let lastOpen = -1;
+    for (let i = 0; i < query.length - 1; i++) {
+      if (query[i] === "$" && query[i + 1] === "{") {
+        lastOpen = i;
+      }
+    }
+    if (lastOpen === -1) return undefined;
+
+    // Check if there's a closing } after the last ${
+    const afterOpen = query.slice(lastOpen + 2);
+    if (afterOpen.includes("}")) return undefined;
+
+    // Cursor is at end of query
+    const partial = afterOpen;
+    const cursorPos = query.length;
+    return { partial, cursorPos };
   }
 
   private findBestMatch(query: string): HistoryEntry | undefined {
@@ -237,7 +289,6 @@ export class RequestPanel {
       e.url.toLowerCase().includes(q)
     );
     if (matches.length === 0) return undefined;
-    // Sort: earlier occurrence first, then exact case, then shortest
     matches.sort((a, b) => {
       const aIdx = a.url.toLowerCase().indexOf(q);
       const bIdx = b.url.toLowerCase().indexOf(q);
@@ -252,7 +303,6 @@ export class RequestPanel {
   }
 
   private repositionGhost(textLength: number) {
-    // methodDisplay width(6) + gap(1) + urlInput paddingX(1) + typed chars
     const baseOffset = 6 + 1 + 1;
     (this.urlGhost as any).left = baseOffset + textLength;
     (this.urlGhost as any).top = 1;
@@ -261,8 +311,11 @@ export class RequestPanel {
 
   clearGhost() {
     this.currentSuggestion = undefined;
+    this.currentEnvVar = undefined;
     this.ghostText = "";
     this.urlGhost.content = "";
+    this.urlGhost.fg = this.theme.colors.muted;
+    this.urlGhost.attributes = TextAttributes.DIM;
     (this.urlGhost as any).left = 0;
   }
 
@@ -271,10 +324,48 @@ export class RequestPanel {
   }
 
   acceptGhost() {
+    if (this.currentEnvVar) {
+      const value = this.urlInput.value ?? "";
+      const lastOpen = value.lastIndexOf("${");
+      if (lastOpen >= 0) {
+        const before = value.slice(0, lastOpen + 2);
+        const after = value.slice(lastOpen + 2);
+        const closeIdx = after.indexOf("}");
+        const suffix = closeIdx >= 0 ? after.slice(closeIdx) : "";
+        this.urlInput.value = before + this.currentEnvVar + suffix;
+      }
+      this.clearGhost();
+      return;
+    }
     if (this.currentSuggestion) {
       this.urlInput.value = this.currentSuggestion.url;
       this.onSuggestionSelect?.(this.currentSuggestion);
       this.clearGhost();
+    }
+  }
+
+  setSending(isLoading: boolean) {
+    const PROGRESS_FRAMES = [
+      "░▒▓█ Sending",
+      "█░▒▓ Sending",
+      "▓█░▒ Sending",
+      "▒▓█░ Sending",
+    ];
+    if (isLoading) {
+      this.spinnerFrame = 0;
+      this.sendButtonText.content = PROGRESS_FRAMES[0]!;
+      this.sendButtonText.fg = this.theme.colors.accent;
+      this.spinnerInterval = setInterval(() => {
+        this.spinnerFrame = (this.spinnerFrame + 1) % PROGRESS_FRAMES.length;
+        this.sendButtonText.content = PROGRESS_FRAMES[this.spinnerFrame]!;
+      }, 150);
+    } else {
+      if (this.spinnerInterval) {
+        clearInterval(this.spinnerInterval);
+        this.spinnerInterval = undefined;
+      }
+      this.sendButtonText.content = " send (ctrl+↵) ";
+      this.sendButtonText.fg = this.theme.colors.white;
     }
   }
 
@@ -292,12 +383,16 @@ export class RequestPanel {
     this.urlInput.textColor = theme.colors.white;
     this.urlInput.cursorColor = theme.colors.accent;
     this.urlInput.focusedBackgroundColor = innerBg;
-    this.urlGhost.fg = theme.colors.muted;
+    this.urlGhost.fg = this.currentEnvVar ? theme.colors.cool : theme.colors.muted;
+    this.urlGhost.attributes = this.currentEnvVar ? 0 : TextAttributes.DIM;
 
     setCodeStyledText(this.bodyPreview, this.bodyContent || "{}", theme);
     setCodeStyledText(this.headersPreview, this.headersContent || "{}", theme);
 
     this.sendButton.backgroundColor = innerBg;
+    if (!this.spinnerInterval) {
+      this.sendButtonText.fg = theme.colors.white;
+    }
   }
 
   getFocusables(): Renderable[] {

@@ -70,14 +70,24 @@ export class ResponsePanel {
     });
     this.panel.add(label);
 
-    // Status badge
+    // Status row (badge + loading spinner)
+    const statusRow = new BoxRenderable(renderer, {
+      id: "status-row",
+      flexDirection: "row",
+      gap: 1,
+      alignItems: "center",
+      height: 1,
+    });
+
     this.statusBadge = new TextRenderable(renderer, {
       id: "status-badge",
       content: "Waiting for request...",
       fg: theme.colors.muted,
       attributes: TextAttributes.DIM,
     });
-    this.panel.add(this.statusBadge);
+    statusRow.add(this.statusBadge);
+
+    this.panel.add(statusRow);
 
     const innerBg = darkenColor(theme.colors.background, 10);
 
@@ -154,9 +164,25 @@ export class ResponsePanel {
     }
   }
 
+  setLoading(isLoading: boolean) {
+    if (isLoading) {
+      this.statusBadge.content = "Sending...";
+      this.statusBadge.fg = this.theme.colors.accent;
+      this.statusBadge.attributes = TextAttributes.BOLD;
+    } else {
+      // Reset to default state; actual content is set by setResponse or setError
+      if (!this.lastResponse && !this.lastError) {
+        this.statusBadge.content = "Waiting for request...";
+        this.statusBadge.fg = this.theme.colors.muted;
+        this.statusBadge.attributes = TextAttributes.DIM;
+      }
+    }
+  }
+
   setResponse(res: ApiResponse) {
     this.lastResponse = res;
     this.lastError = undefined;
+    this.setLoading(false);
     const status = res.status;
     const badgeText = `${status} ${res.statusText}`;
     this.statusBadge.content = badgeText;
@@ -179,6 +205,7 @@ export class ResponsePanel {
   setError(message: string) {
     this.lastError = message;
     this.lastResponse = undefined;
+    this.setLoading(false);
     this.statusBadge.content = `Error: ${message}`;
     this.statusBadge.fg = this.theme.colors.error;
     this.statusBadge.attributes = TextAttributes.BOLD;
