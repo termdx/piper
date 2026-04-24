@@ -2,7 +2,7 @@ import { RGBA, StyledText } from "@opentui/core";
 import type { TextChunk } from "@opentui/core";
 import type { Theme } from "../types";
 
-type TokenType = "whitespace" | "punctuation" | "string" | "number" | "keyword" | "plain";
+type TokenType = "whitespace" | "punctuation" | "string" | "envvar" | "number" | "keyword" | "plain";
 
 interface Token {
   type: TokenType;
@@ -124,6 +124,61 @@ function tokenizeJson(json: string): Token[] {
   return tokens;
 }
 
+function splitEnvVars(tokens: Token[]): Token[] {
+  const result: Token[] = [];
+  const envRegex = /\$\{([^}]+)\}/g;
+
+  for (const token of tokens) {
+    if (token.type !== "string") {
+      result.push(token);
+      continue;
+    }
+
+    // Extract the raw content without quotes
+    const isQuoted = token.text.startsWith('"') && token.text.endsWith('"');
+    const raw = isQuoted ? token.text.slice(1, -1) : token.text;
+    const parts: { text: string; isEnv: boolean }[] = [];
+    let lastIndex = 0;
+    let match: RegExpExecArray | null;
+
+    const regex = new RegExp(envRegex.source, "g");
+    while ((match = regex.exec(raw)) !== null) {
+      if (match.index > lastIndex) {
+        parts.push({ text: raw.slice(lastIndex, match.index), isEnv: false });
+      }
+      parts.push({ text: match[0], isEnv: true });
+      lastIndex = match.index + match[0].length;
+    }
+    if (lastIndex < raw.length) {
+      parts.push({ text: raw.slice(lastIndex), isEnv: false });
+    }
+
+    // If no env vars found, keep original token
+    if (parts.length === 1 && !parts[0]!.isEnv) {
+      result.push(token);
+      continue;
+    }
+
+    // Rebuild with quotes around each part
+    for (let i = 0; i < parts.length; i++) {
+      const part = parts[i]!;
+      let text = part.text;
+      if (isQuoted) {
+        const needsOpen = i === 0;
+        const needsClose = i === parts.length - 1;
+        text = (needsOpen ? '"' : "") + text + (needsClose ? '"' : "");
+      }
+      result.push({
+        type: part.isEnv ? "envvar" : "string",
+        text,
+        isKey: token.isKey && i === 0,
+      });
+    }
+  }
+
+  return result;
+}
+
 function tokensToChunks(tokens: Token[], theme: Theme): TextChunk[] {
   return tokens.map((token) => {
     const chunk: TextChunk = { __isChunk: true, text: token.text };
@@ -139,6 +194,10 @@ function tokensToChunks(tokens: Token[], theme: Theme): TextChunk[] {
         break;
       case "keyword":
         chunk.fg = RGBA.fromHex(theme.colors.accent);
+        break;
+      case "envvar":
+        chunk.fg = RGBA.fromHex(theme.colors.cool);
+        chunk.attributes = 1; // bold
         break;
       // "whitespace" and "plain" use default terminal color
     }
@@ -158,6 +217,7 @@ export function highlightJson(input: string, theme: Theme): StyledText {
   }
 
   const tokens = tokenizeJson(jsonString);
-  const chunks = tokensToChunks(tokens, theme);
+  const splitTokens = splitEnvVars(tokens);
+  const chunks = tokensToChunks(splitTokens, theme);
   return new StyledText(chunks);
 }
