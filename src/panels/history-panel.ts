@@ -7,7 +7,7 @@ import {
   TextAttributes,
 } from "@opentui/core";
 import type { Theme, HistoryEntry } from "../types";
-import { historyStore, deduplicateHistory } from "../utils/history";
+import { HistoryStore, deduplicateHistory } from "../utils/history";
 
 function lightenColor(hex: string, amount: number): string {
   const num = parseInt(hex.replace("#", ""), 16);
@@ -46,6 +46,7 @@ export class HistoryPanel {
   searchInput: InputRenderable;
   scrollBox: ScrollBoxRenderable;
   theme: Theme;
+  historyStore?: HistoryStore;
 
   private entries: HistoryEntry[] = [];
   private filtered: HistoryEntry[] = [];
@@ -116,7 +117,13 @@ export class HistoryPanel {
   }
 
   async loadHistory() {
-    const raw = await historyStore.load();
+    if (!this.historyStore) {
+      this.entries = [];
+      this.filtered = [];
+      this.renderRows();
+      return;
+    }
+    const raw = await this.historyStore.load();
     this.entries = deduplicateHistory(raw);
     this.filter("");
   }
@@ -228,7 +235,8 @@ export class HistoryPanel {
   }
 
   async addEntry(entry: HistoryEntry) {
-    await historyStore.addEntry(entry);
+    if (!this.historyStore) return;
+    await this.historyStore.addEntry(entry);
     await this.loadHistory();
   }
 

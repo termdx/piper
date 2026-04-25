@@ -1,6 +1,5 @@
 import type { HistoryEntry } from "../types";
-
-const HISTORY_FILE = `${process.env.HOME}/.piper/history.json`;
+import { workspaceStore } from "./workspace-store";
 
 function entryKey(entry: HistoryEntry): string {
   return `${entry.method}|${entry.url}|${entry.headers ?? ""}|${entry.body ?? ""}`;
@@ -19,9 +18,15 @@ export function deduplicateHistory(entries: HistoryEntry[]): HistoryEntry[] {
 }
 
 export class HistoryStore {
+  private historyFile: string;
+
+  constructor(workspaceName: string) {
+    this.historyFile = workspaceStore.getHistoryPath(workspaceName);
+  }
+
   async load(): Promise<HistoryEntry[]> {
     try {
-      const file = Bun.file(HISTORY_FILE);
+      const file = Bun.file(this.historyFile);
       if (!(await file.exists())) return [];
       const data = await file.json();
       if (Array.isArray(data)) return data as HistoryEntry[];
@@ -32,7 +37,7 @@ export class HistoryStore {
   }
 
   async save(entries: HistoryEntry[]) {
-    await Bun.write(HISTORY_FILE, JSON.stringify(entries, null, 2));
+    await Bun.write(this.historyFile, JSON.stringify(entries, null, 2));
   }
 
   async addEntry(entry: HistoryEntry) {
@@ -46,5 +51,3 @@ export class HistoryStore {
     await this.save(filtered);
   }
 }
-
-export const historyStore = new HistoryStore();

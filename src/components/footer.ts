@@ -2,7 +2,7 @@ import type { RenderContext } from "@opentui/core";
 import { BoxRenderable, TextRenderable, TextAttributes } from "@opentui/core";
 import type { Theme } from "../types";
 
-export function createFooter(renderer: RenderContext, theme: Theme) {
+export function createFooter(renderer: RenderContext, theme: Theme, workspaceName?: string) {
   const footer = new BoxRenderable(renderer, {
     id: "footer",
     flexDirection: "row",
@@ -27,13 +27,36 @@ export function createFooter(renderer: RenderContext, theme: Theme) {
 
   const versionText = new TextRenderable(renderer, {
     id: "footer-version",
-    content: " v0.1.4",
+    content: " v0.1.5",
     fg: theme.colors.white,
     attributes: TextAttributes.DIM,
   });
 
   leftGroup.add(nameText);
   leftGroup.add(versionText);
+
+  // Center group — workspace indicator
+  const centerGroup = new BoxRenderable(renderer, {
+    id: "footer-center-group",
+    flexDirection: "row",
+    gap: 0,
+  });
+
+  if (workspaceName) {
+    const workspaceText = new TextRenderable(renderer, {
+      id: "footer-workspace-name",
+      content: workspaceName,
+      fg: theme.colors.white,
+    });
+    const workspaceLabel = new TextRenderable(renderer, {
+      id: "footer-workspace-label",
+      content: " current workspace",
+      fg: theme.colors.white,
+      attributes: TextAttributes.DIM,
+    });
+    centerGroup.add(workspaceText);
+    centerGroup.add(workspaceLabel);
+  }
 
   const rightGroup = new BoxRenderable(renderer, {
     id: "footer-right-group",
@@ -58,6 +81,7 @@ export function createFooter(renderer: RenderContext, theme: Theme) {
   rightGroup.add(shortcutLabelText);
 
   footer.add(leftGroup);
+  footer.add(centerGroup);
   footer.add(rightGroup);
   return footer;
 }

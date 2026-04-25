@@ -9,10 +9,11 @@ import {
 } from "@opentui/core";
 import type { Theme, HistoryEntry } from "../types";
 import { highlightJson } from "../utils/json-highlight";
-import { historyStore } from "../utils/history";
+import type { HistoryStore } from "../utils/history";
 import { findEnvVars, getEnvVar } from "../utils/env";
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"];
+const METHOD_DISPLAY_WIDTH = 8;
 
 function getMethodColor(method: string, theme: Theme): string {
   switch (method.toUpperCase()) {
@@ -74,6 +75,7 @@ export class RequestPanel {
   private currentEnvVar?: string;
   private ghostText = "";
   private lastGhostQuery = "";
+  historyStore?: HistoryStore;
 
   onSend?: () => void;
   onMethodClick?: () => void;
@@ -117,7 +119,7 @@ export class RequestPanel {
 
     this.methodDisplay = new BoxRenderable(renderer, {
       id: "method-display",
-      width: 6,
+      width: METHOD_DISPLAY_WIDTH,
       height: 3,
       backgroundColor: innerBg,
       alignItems: "center",
@@ -220,7 +222,9 @@ export class RequestPanel {
 
   private async ensureHistoryLoaded() {
     if (this.historyLoaded) return;
-    this.historyEntries = await historyStore.load();
+    if (this.historyStore) {
+      this.historyEntries = await this.historyStore.load();
+    }
     this.historyLoaded = true;
   }
 
@@ -303,7 +307,7 @@ export class RequestPanel {
   }
 
   private repositionGhost(textLength: number) {
-    const baseOffset = 6 + 1 + 1;
+    const baseOffset = METHOD_DISPLAY_WIDTH + 1 + 1;
     (this.urlGhost as any).left = baseOffset + textLength;
     (this.urlGhost as any).top = 1;
     this.urlBarBox.requestRender();
