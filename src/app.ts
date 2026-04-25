@@ -11,12 +11,16 @@ import { MetricsPanel } from "./panels/metrics-panel";
 import { sendRequest } from "./utils/request";
 import { settingsStore } from "./utils/settings-store";
 import { copyToClipboard } from "./utils/clipboard";
+import { workspaceStore } from "./utils/workspace-store";
+import { HistoryStore } from "./utils/history";
 import { createThemeSelectorOverlay } from "./overlays/theme-selector";
 import { createExportDialogOverlay } from "./overlays/export-dialog";
 import { createKeymapPopupOverlay } from "./overlays/keymap-popup";
 import { createMethodSelectorOverlay } from "./overlays/method-selector";
 import { BodyEditorOverlay } from "./overlays/body-editor-popup";
 import { HeaderEditorOverlay } from "./overlays/header-editor-popup";
+import { createWorkspaceSplashOverlay } from "./overlays/workspace-splash";
+import { WorkspaceManagerOverlay } from "./overlays/workspace-manager";
 
 export class PiperApp {
   renderer!: CliRenderer;
@@ -44,16 +48,20 @@ export class PiperApp {
   methodSelectorOverlay?: BoxRenderable;
   bodyEditorOverlay?: BodyEditorOverlay;
   headerEditorOverlay?: HeaderEditorOverlay;
+  workspaceSplashOverlay?: BoxRenderable;
+  workspaceManagerOverlay?: WorkspaceManagerOverlay;
 
   // State
   history: HistoryEntry[] = [];
   activeResponseTab = "body";
   loading = false;
   leftColumnVisible = true;
+  workspaceName?: string;
+  historyStore?: HistoryStore;
 
   private readonly MIN_TERM_WIDTH = 100;
 
-  async init() {
+  async init(cliWorkspace?: string) {
     this.renderer = await createCliRenderer({ exitOnCtrlC: false, backgroundColor: "black", screenMode: "alternate-screen" });
     this.renderer.setBackgroundColor("black");
 
@@ -63,12 +71,32 @@ export class PiperApp {
       this.themeName = savedTheme;
     }
 
+    // Resolve workspace
+    let resolvedWorkspace: string | undefined = cliWorkspace;
+    if (resolvedWorkspace) {
+      const exists = await workspaceStore.workspaceExists(resolvedWorkspace);
+      if (!exists) {
+        // Auto-create workspace from CLI flag
+        await workspaceStore.createWorkspace(resolvedWorkspace);
+      }
+      this.workspaceName = resolvedWorkspace;
+    } else {
+      // No CLI flag — always show splash; don't auto-load saved workspace
+      this.workspaceName = undefined;
+    }
+
     this.buildLayout();
     this.setupKeyboard();
     this.focusManager.focusByIndex(0);
 
     this.renderer.on(CliRenderEvents.RESIZE, () => this.handleResize());
     this.handleResize();
+
+    if (this.workspaceName) {
+      await this.setupWorkspace(this.workspaceName);
+    } else {
+      this.showWorkspaceSplash();
+    }
   }
 
   private buildLayout() {
@@ -127,7 +155,7 @@ export class PiperApp {
     this.body.add(this.rightColumn);
 
     // Footer
-    this.footer = createFooter(r, t);
+    this.footer = createFooter(r, t, this.workspaceName);
 
     this.root.add(this.body);
     this.root.add(this.footer);
@@ -193,6 +221,14 @@ export class PiperApp {
         }
         if (this.headerEditorOverlay) {
           this.closeHeaderEditor();
+          return;
+        }
+        if (this.workspaceManagerOverlay) {
+          this.closeWorkspaceManager();
+          return;
+        }
+        if (this.workspaceSplashOverlay) {
+          // Splash only closes by selecting a workspace
           return;
         }
         return;
@@ -302,8 +338,42 @@ export class PiperApp {
         return;
       }
 
+      // Workspace manager keymap
+      if (this.workspaceManagerOverlay) {
+        if (key.ctrl && key.name === "n") {
+          this.workspaceManagerOverlay.handleAdd();
+          return;
+        }
+        if (key.ctrl && key.name === "r") {
+          this.workspaceManagerOverlay.startRename();
+          return;
+        }
+        if (key.ctrl && key.name === "d") {
+          this.workspaceManagerOverlay.deleteSelected();
+          return;
+        }
+        if (key.name === "up") {
+          this.workspaceManagerOverlay.navigate(-1);
+          return;
+        }
+        if (key.name === "down") {
+          this.workspaceManagerOverlay.navigate(1);
+          return;
+        }
+        if (key.name === "enter" || key.name === "return") {
+          this.workspaceManagerOverlay.switchSelected();
+          return;
+        }
+        return;
+      }
+
       // Only process single-key keymap when no overlay is open
       if (this.themeSelectorOverlay || this.exportDialogOverlay || this.keymapPopupOverlay || this.methodSelectorOverlay || this.bodyEditorOverlay || this.headerEditorOverlay) return;
+
+      if (key.ctrl && key.name === "w") {
+        this.openWorkspaceManager();
+        return;
+      }
 
       if (key.ctrl && key.name === "/") {
         this.openKeymapPopup();
@@ -646,6 +716,101 @@ export class PiperApp {
     this.requestPanel.applyTheme(theme);
     this.responsePanel.applyTheme(theme);
 
+    this.renderer.requestRender();
+  }
+
+  // ── Workspace management ──
+
+  private async setupWorkspace(name: string) {
+    this.workspaceName = name;
+    await workspaceStore.setCurrentWorkspace(name);
+    this.historyStore = new HistoryStore(name);
+    this.historyPanel.historyStore = this.historyStore;
+    this.requestPanel.historyStore = this.historyStore;
+    await this.historyPanel.loadHistory();
+    this.updateFooterWorkspace();
+  }
+
+  private updateFooterWorkspace() {
+    const centerGroup = this.footer.getRenderable("footer-center-group") as BoxRenderable | undefined;
+    if (!centerGroup) return;
+    centerGroup.remove("footer-workspace-name");
+    centerGroup.remove("footer-workspace-label");
+    if (this.workspaceName) {
+      const nameText = new TextRenderable(this.renderer, {
+        id: "footer-workspace-name",
+        content: this.workspaceName,
+        fg: this.theme.colors.white,
+      });
+      const labelText = new TextRenderable(this.renderer, {
+        id: "footer-workspace-label",
+        content: " current workspace",
+        fg: this.theme.colors.white,
+        attributes: 2, // DIM
+      });
+      centerGroup.add(nameText);
+      centerGroup.add(labelText);
+    }
+    this.renderer.requestRender();
+  }
+
+  private showWorkspaceSplash() {
+    if (this.workspaceSplashOverlay) return;
+    // Blur any focused element so no cursor shows through
+    const current = this.focusManager.getCurrent();
+    current?.blur();
+    this.workspaceSplashOverlay = createWorkspaceSplashOverlay(
+      this.renderer,
+      this.theme,
+      () => this.openWorkspaceManager()
+    );
+    this.root.add(this.workspaceSplashOverlay);
+    this.renderer.requestRender();
+  }
+
+  private hideWorkspaceSplash() {
+    if (!this.workspaceSplashOverlay) return;
+    this.root.remove("workspace-splash-overlay");
+    this.workspaceSplashOverlay = undefined;
+    this.renderer.requestRender();
+  }
+
+  private openWorkspaceManager() {
+    if (this.workspaceManagerOverlay) return;
+    this.workspaceManagerOverlay = new WorkspaceManagerOverlay(
+      this.renderer,
+      this.theme,
+      this.workspaceName
+    );
+    this.workspaceManagerOverlay.onSwitch = (name) => {
+      this.switchWorkspace(name);
+      this.closeWorkspaceManager();
+    };
+    this.workspaceManagerOverlay.onDelete = (name) => {
+      if (name === this.workspaceName) {
+        // Deleted the active workspace — go back to splash
+        this.workspaceName = undefined;
+        this.historyStore = undefined;
+        this.updateFooterWorkspace();
+        this.closeWorkspaceManager();
+        this.showWorkspaceSplash();
+      }
+    };
+    this.root.add(this.workspaceManagerOverlay.overlay);
+    this.renderer.requestRender();
+  }
+
+  private closeWorkspaceManager() {
+    if (!this.workspaceManagerOverlay) return;
+    this.root.remove("workspace-manager-overlay");
+    this.workspaceManagerOverlay = undefined;
+    this.renderer.requestRender();
+  }
+
+  private async switchWorkspace(name: string) {
+    await this.setupWorkspace(name);
+    this.metricsPanel.clear();
+    this.hideWorkspaceSplash();
     this.renderer.requestRender();
   }
 }
