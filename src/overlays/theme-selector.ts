@@ -2,18 +2,11 @@ import type { RenderContext } from "@opentui/core";
 import { BoxRenderable, TextRenderable, SelectRenderable, TextAttributes, RGBA } from "@opentui/core";
 import type { Theme } from "../types";
 import { themes } from "../themes";
+import { lightenColor } from "../utils/colors";
 
 // Fixed popup background — independent of the app theme
 const POPUP_BG = "#1a1a1a";
 const LIST_BG = "#1a1a1a";
-
-function lightenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + amount);
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + amount);
-  const b = Math.min(255, (num & 0x0000ff) + amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
 
 export function createThemeSelectorOverlay(
   renderer: RenderContext,

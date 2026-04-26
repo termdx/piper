@@ -8,16 +8,9 @@ import {
 } from "@opentui/core";
 import type { Theme } from "../types";
 import { workspaceStore } from "../utils/workspace-store";
+import { lightenColor } from "../utils/colors";
 
 const POPUP_BG = "#1a1a1a";
-
-function lightenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + amount);
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + amount);
-  const b = Math.min(255, (num & 0x0000ff) + amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
 
 export class WorkspaceManagerOverlay {
   overlay: BoxRenderable;
@@ -32,7 +25,6 @@ export class WorkspaceManagerOverlay {
   private renderer: RenderContext;
   private rowIds: string[] = [];
   private isRenaming = false;
-
   onSwitch?: (name: string) => void;
   onDelete?: (name: string) => void;
   onClose?: () => void;
@@ -67,9 +59,9 @@ export class WorkspaceManagerOverlay {
     const popup = new BoxRenderable(renderer, {
       id: "workspace-manager-popup",
       position: "absolute",
-      left: "25%",
+      left: "10%",
       top: "20%",
-      width: "50%",
+      width: "80%",
       height: "auto",
       backgroundColor: POPUP_BG,
       paddingX: 2,
@@ -182,7 +174,8 @@ export class WorkspaceManagerOverlay {
     addHint("ctrl+n", "create");
     addHint("ctrl+r", "rename");
     addHint("ctrl+d", "delete");
-    addHint("enter", "switch");
+    addHint("ctrl+enter", "switch");
+    addHint("enter", "confirm");
     addHint("↑↓", "navigate");
     addHint("esc", "close");
     popup.add(hintRow);
@@ -287,6 +280,19 @@ export class WorkspaceManagerOverlay {
     }
   }
 
+  deleteSelected() {
+    if (this.selectedIndex < 0 || this.selectedIndex >= this.workspaces.length) return;
+    const name = this.workspaces[this.selectedIndex]!;
+    this.deleteWorkspace(name);
+  }
+
+  private deleteWorkspace(name: string) {
+    workspaceStore.deleteWorkspace(name).then(() => {
+      this.onDelete?.(name);
+      this.loadWorkspaces();
+    });
+  }
+
   startRename() {
     if (this.selectedIndex < 0 || this.selectedIndex >= this.workspaces.length) return;
     const oldName = this.workspaces[this.selectedIndex]!;
@@ -317,24 +323,4 @@ export class WorkspaceManagerOverlay {
     }
   }
 
-  deleteSelected() {
-    if (this.selectedIndex < 0 || this.selectedIndex >= this.workspaces.length) return;
-    const name = this.workspaces[this.selectedIndex]!;
-    this.deleteWorkspace(name);
-  }
-
-  private deleteWorkspace(name: string) {
-    workspaceStore.deleteWorkspace(name).then(() => {
-      this.onDelete?.(name);
-      this.loadWorkspaces();
-    });
-  }
-
-  getNameInputValue(): string {
-    return this.nameInput.value?.trim() ?? "";
-  }
-
-  focusNameInput() {
-    this.nameInput.focus();
-  }
 }
