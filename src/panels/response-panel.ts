@@ -8,32 +8,8 @@ import {
   TextAttributes,
 } from "@opentui/core";
 import type { Theme, ApiResponse } from "../types";
-import { highlightJson } from "../utils/json-highlight";
-
-function lightenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + amount);
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + amount);
-  const b = Math.min(255, (num & 0x0000ff) + amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
-
-function darkenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.max(0, (num >> 16) - amount);
-  const g = Math.max(0, ((num >> 8) & 0x00ff) - amount);
-  const b = Math.max(0, (num & 0x0000ff) - amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
-
-function setCodeStyledText(code: CodeRenderable, content: string, theme: Theme) {
-  const styled = highlightJson(content, theme);
-  const c = code as any;
-  c.textBuffer.setStyledText(styled);
-  c._shouldRenderTextBuffer = true;
-  c.updateTextInfo();
-  code.requestRender();
-}
+import { darkenColor } from "../utils/colors";
+import { setCodeStyledText } from "../utils/code-render";
 
 export class ResponsePanel {
   panel: BoxRenderable;
@@ -242,9 +218,4 @@ export class ResponsePanel {
     return [this.tabs];
   }
 
-  switchTab(tab: "body" | "headers") {
-    this.activeTab = tab;
-    this.tabs.setSelectedIndex(tab === "body" ? 0 : 1);
-    this.updateVisibility();
-  }
 }

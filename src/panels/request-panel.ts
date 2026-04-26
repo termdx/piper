@@ -8,48 +8,13 @@ import {
   TextAttributes,
 } from "@opentui/core";
 import type { Theme, HistoryEntry } from "../types";
-import { highlightJson } from "../utils/json-highlight";
+import { findEnvVars } from "../utils/env";
 import type { HistoryStore } from "../utils/history";
-import { findEnvVars, getEnvVar } from "../utils/env";
+import { lightenColor, darkenColor } from "../utils/colors";
+import { setCodeStyledText } from "../utils/code-render";
 
 const HTTP_METHODS = ["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS", "HEAD"];
 const METHOD_DISPLAY_WIDTH = 8;
-
-function getMethodColor(method: string, theme: Theme): string {
-  switch (method.toUpperCase()) {
-    case "GET": return theme.colors.success;
-    case "POST": return theme.colors.primary;
-    case "PUT": return theme.colors.accent;
-    case "DELETE": return theme.colors.error;
-    case "PATCH": return theme.colors.secondary;
-    default: return theme.colors.muted;
-  }
-}
-
-function lightenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.min(255, (num >> 16) + amount);
-  const g = Math.min(255, ((num >> 8) & 0x00ff) + amount);
-  const b = Math.min(255, (num & 0x0000ff) + amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
-
-function darkenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.max(0, (num >> 16) - amount);
-  const g = Math.max(0, ((num >> 8) & 0x00ff) - amount);
-  const b = Math.max(0, (num & 0x0000ff) - amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
-
-function setCodeStyledText(code: CodeRenderable, content: string, theme: Theme) {
-  const styled = highlightJson(content, theme);
-  const c = code as any;
-  c.textBuffer.setStyledText(styled);
-  c._shouldRenderTextBuffer = true;
-  c.updateTextInfo();
-  code.requestRender();
-}
 
 export class RequestPanel {
   panel: BoxRenderable;
@@ -78,7 +43,6 @@ export class RequestPanel {
   historyStore?: HistoryStore;
 
   onSend?: () => void;
-  onMethodClick?: () => void;
   onSuggestionSelect?: (entry: HistoryEntry) => void;
 
   constructor(renderer: RenderContext, theme: Theme) {
@@ -124,7 +88,7 @@ export class RequestPanel {
       backgroundColor: innerBg,
       alignItems: "center",
       justifyContent: "center",
-      onMouseDown: () => this.onMethodClick?.(),
+      onMouseDown: () => {},
     });
     this.methodText = new TextRenderable(renderer, {
       content: "GET",

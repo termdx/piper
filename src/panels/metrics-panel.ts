@@ -1,16 +1,9 @@
 import type { RenderContext, Renderable } from "@opentui/core";
 import { BoxRenderable, TextRenderable, TextAttributes } from "@opentui/core";
 import type { Theme, PerformanceMetrics } from "../types";
+import { darkenColor } from "../utils/colors";
 
 const GAUGE_WIDTH = 20;
-
-function darkenColor(hex: string, amount: number): string {
-  const num = parseInt(hex.replace("#", ""), 16);
-  const r = Math.max(0, (num >> 16) - amount);
-  const g = Math.max(0, ((num >> 8) & 0x00ff) - amount);
-  const b = Math.max(0, (num & 0x0000ff) - amount);
-  return `#${((r << 16) | (g << 8) | b).toString(16).padStart(6, "0")}`;
-}
 
 function formatBytes(bytes: number): string {
   if (bytes === 0) return "0 B";
