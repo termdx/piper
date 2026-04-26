@@ -27,7 +27,7 @@ export function createFooter(renderer: RenderContext, theme: Theme, workspaceNam
 
   const versionText = new TextRenderable(renderer, {
     id: "footer-version",
-    content: " v0.1.5",
+    content: " v0.1.6",
     fg: theme.colors.white,
     attributes: TextAttributes.DIM,
   });

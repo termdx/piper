@@ -86,7 +86,7 @@ export function createWorkspaceSplashOverlay(
 
   // Version tag — bottom right, same position as footer
   const versionTag = new TextRenderable(renderer, {
-    content: "v0.1.5",
+    content: "v0.1.6",
     fg: theme.colors.white,
     attributes: TextAttributes.DIM,
   });
