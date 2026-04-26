@@ -4,7 +4,7 @@ interface Settings {
   theme?: string;
 }
 
-export class SettingsStore {
+class SettingsStore {
   async load(): Promise<Settings> {
     try {
       const file = Bun.file(SETTINGS_FILE);

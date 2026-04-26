@@ -13,7 +13,7 @@ interface Settings {
   currentWorkspace?: string;
 }
 
-export class WorkspaceStore {
+class WorkspaceStore {
   async loadRegistry(): Promise<WorkspacesRegistry> {
     try {
       const file = Bun.file(WORKSPACES_FILE);
@@ -109,11 +109,6 @@ export class WorkspaceStore {
 
   async saveSettings(settings: Settings) {
     await Bun.write(SETTINGS_FILE, JSON.stringify(settings, null, 2));
-  }
-
-  async getCurrentWorkspace(): Promise<string | undefined> {
-    const settings = await this.loadSettings();
-    return settings.currentWorkspace;
   }
 
   async setCurrentWorkspace(name: string) {

@@ -43,9 +43,3 @@ export interface ApiResponse {
   body: string;
   metrics: PerformanceMetrics;
 }
-
-export interface DownloadProgress {
-  bytesReceived: number;
-  totalBytes: number;
-  speed: number;
-}
