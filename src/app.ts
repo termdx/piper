@@ -1,6 +1,6 @@
 import type { CliRenderer, KeyEvent } from "@opentui/core";
 import { createCliRenderer, BoxRenderable, TextRenderable, CliRenderEvents } from "@opentui/core";
-import type { Theme, HistoryEntry, ApiResponse } from "./types";
+import type { Theme, HistoryEntry } from "./types";
 import { themes, defaultTheme } from "./themes";
 import { FocusManager } from "./focus-manager";
 import { createFooter } from "./components/footer";
@@ -360,8 +360,12 @@ export class PiperApp {
           this.workspaceManagerOverlay.navigate(1);
           return;
         }
-        if (key.name === "enter" || key.name === "return") {
+        if (key.ctrl && (key.name === "enter" || key.name === "return")) {
           this.workspaceManagerOverlay.switchSelected();
+          return;
+        }
+        if (key.name === "enter" || key.name === "return") {
+          this.workspaceManagerOverlay.handleRenameOrAdd();
           return;
         }
         return;
