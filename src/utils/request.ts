@@ -4,7 +4,7 @@ import net from "node:net";
 import tls from "node:tls";
 import dns from "node:dns";
 import { URL } from "node:url";
-import type { RequestConfig, ApiResponse, PerformanceMetrics, DownloadProgress } from "../types";
+import type { RequestConfig, ApiResponse, PerformanceMetrics } from "../types";
 import { interpolateEnv } from "./env";
 
 interface TimingState {
@@ -57,7 +57,7 @@ function createTimedAgent(
 }
 
 export function sendRequest(
-  config: RequestConfig & { onProgress?: (p: DownloadProgress) => void }
+  config: RequestConfig
 ): Promise<ApiResponse> {
   return new Promise((resolve, reject) => {
     // Interpolate env vars
@@ -100,7 +100,7 @@ export function sendRequest(
 
     // Measure DNS lookup time manually
     const dnsStart = performance.now();
-    dns.lookup(url.hostname, (err, address) => {
+    dns.lookup(url.hostname, (err) => {
       if (err) {
         reject(err);
         return;
@@ -124,26 +124,10 @@ export function sendRequest(
 
           const chunks: Buffer[] = [];
           let received = 0;
-          const total = parseInt(res.headers["content-length"] || "0", 10);
-          let lastProgressTime = performance.now();
-          let lastReceived = 0;
 
           res.on("data", (chunk: Buffer) => {
             chunks.push(chunk);
             received += chunk.length;
-
-            const now = performance.now();
-            const dt = (now - lastProgressTime) / 1000;
-            if (dt > 0.2) {
-              const speed = dt > 0 ? (received - lastReceived) / dt : 0;
-              config.onProgress?.({
-                bytesReceived: received,
-                totalBytes: total,
-                speed,
-              });
-              lastProgressTime = now;
-              lastReceived = received;
-            }
           });
 
           res.on("end", () => {
