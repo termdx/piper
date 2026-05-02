@@ -1,6 +1,6 @@
 # Piper
 
-A fast, keyboard-driven API client for the terminal. Built with [OpenTUI](https://github.com/termdx/opentui).
+A fast, keyboard-driven API client for the terminal. Built with [OpenTUI](https://opentui.com).
 
 Piper is protocol-agnostic by design — start with HTTP, then chain requests, stream WebSockets, and script workflows without leaving your terminal.
 
@@ -36,18 +36,18 @@ Launch Piper and start making requests immediately.
 
 ## Keybindings
 
-| Key | Action |
-|-----|--------|
-| `Tab` / `Shift+Tab` | Cycle focus between panels |
-| `Ctrl+Enter` | Send request |
-| `Ctrl+M` | Open method selector |
-| `Ctrl+B` | Open body editor |
-| `Ctrl+H` | Open header editor |
-| `Ctrl+T` | Switch theme |
-| `Ctrl+E` | Export current request as cURL |
-| `Ctrl+Y` | Yank (copy) selected text to clipboard |
-| `Ctrl+/` | Show keymap popup |
-| `Ctrl+Q` | Quit |
+| Key                 | Action                                 |
+| ------------------- | -------------------------------------- |
+| `Tab` / `Shift+Tab` | Cycle focus between panels             |
+| `Ctrl+Enter`        | Send request                           |
+| `Ctrl+M`            | Open method selector                   |
+| `Ctrl+B`            | Open body editor                       |
+| `Ctrl+H`            | Open header editor                     |
+| `Ctrl+T`            | Switch theme                           |
+| `Ctrl+E`            | Export current request as cURL         |
+| `Ctrl+Y`            | Yank (copy) selected text to clipboard |
+| `Ctrl+/`            | Show keymap popup                      |
+| `Ctrl+Q`            | Quit                                   |
 
 ## Development
 
